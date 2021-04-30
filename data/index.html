@@ -1,0 +1,289 @@
+<!-- const char MAIN_page[] PROGMEM = R"=====( -->
+<!doctype html>
+<html>
+
+<head>
+	<title>Line Chart | Circuits4you.com</title>
+	<!--For offline ESP graphs see this tutorial https://circuits4you.com/2018/03/10/esp8266-jquery-and-ajax-web-server/ -->
+	<script src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
+	<style>
+	canvas{
+		-moz-user-select: none;
+		-webkit-user-select: none;
+		-ms-user-select: none;
+	}
+
+	/* Data Table Styling */
+	#dataTableTemperature {
+	  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+	  border-collapse: collapse;
+	  width: 100%;
+	}
+
+	#dataTableTemperature td, #dataTableTemperature th {
+	  border: 1px solid #ddd;
+	  padding: 8px;
+	}
+
+	#dataTableTemperature tr:nth-child(even){background-color: #f2f2f2;}
+
+	#dataTableTemperature tr:hover {background-color: #ddd;}
+
+	#dataTableTemperature th {
+	  padding-top: 12px;
+	  padding-bottom: 12px;
+	  text-align: left;
+	  background-color: #4CAF50;
+	  color: white;
+	}
+	</style>
+</head>
+
+<body>
+    <div style="text-align:center;">Chiefer Meadery</div>
+    <div class="chart-container" style="position: relative; height:350px; width:100%">
+        <canvas id="Chart" width="400" height="400"></canvas>
+    </div>
+<div>
+	<table id="dataTableTemperature">
+	  <tr><th>Time</th><th>Temperature</th></tr>
+	</table>
+</div>
+<br>
+<br>
+
+<script>
+//Graphs visit: https://www.chartjs.org
+var temperature = [];
+var humidity = [];
+var timeStamp = [];
+function showGraph()
+{
+    for (i = 0; i < arguments.length; i++) {
+			temperature.push(arguments[i]);
+			humidity.push(arguments[i]);
+    }
+
+    var ctx = document.getElementById("Chart").getContext('2d');
+    var Chart2 = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeStamp,	//Bottom Labeling
+            datasets: [{
+                label: "Temperature",
+                fill: false,	//Try with true
+                backgroundColor: 'rgba( 243, 156, 18 , 1)', //Dot marker color
+                borderColor: 'rgba( 243, 156, 18 , 1)',	//Graph Line Color
+                data: temperature,
+            },
+						{
+							label: "Humidity",
+							fill: false,	//Try with true
+							backgroundColor: 'rgba( 243, 156, 18 , 1)', //Dot marker color
+							borderColor: 'rgba( 243, 156, 18 , 1)',	//Graph Line Color
+							data: humidity,
+						}],
+        },
+        options: {
+            title: {
+                    display: true,
+                    text: "Temperature & Humidity"
+                },
+            maintainAspectRatio: false,
+            elements: {
+            line: {
+                    tension: 0.5 //Smoothening (Curved) of data lines
+                }
+            },
+            scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero:true
+                        }
+                    }]
+            }
+        }
+    });
+}
+
+//On Page load show graphs
+window.onload = function() {
+	console.log(new Date().toLocaleTimeString());
+	showGraph(5,10,4,58);
+};
+
+//Ajax script to get ADC voltage at every 5 Seconds
+//Read This tutorial https://circuits4you.com/2018/02/04/esp8266-ajax-update-part-of-web-page-without-refreshing/
+
+setInterval(function() {
+  // Call a function repetatively with 5 Second interval
+  getTemperature();
+  getHumidity();
+}, 5000); //5000mSeconds update rate
+
+function getTemperature() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+     //Push the data in array
+	var time = new Date().toLocaleTimeString();
+	var temperature = this.responseText;
+      values.push(temperature);
+      timeStamp.push(time);
+      showGraph();	//Update Graphs
+	//Update Data Table
+	  var table = document.getElementById("dataTableTemperature");
+	  var row = table.insertRow(1);	//Add after headings
+	  var cell1 = row.insertCell(0);
+	  var cell2 = row.insertCell(1);
+	  cell1.innerHTML = time;
+	  cell2.innerHTML = temperature;
+    }
+  };
+  xhttp.open("GET", "/temperature", true);	//Handle readADC server on ESP8266
+  xhttp.send();
+}
+
+function getHumidity() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+     //Push the data in array
+	var time = new Date().toLocaleTimeString();
+	var humidity = this.responseText;
+      values.push(pressure);
+      timeStamp.push(time);
+      showGraph();	//Update Graphs
+	//Update Data Table
+	  var table = document.getElementById("dataTableHumidity");
+	  var row = table.insertRow(1);	//Add after headings
+	  var cell1 = row.insertCell(0);
+	  var cell2 = row.insertCell(1);
+	  cell1.innerHTML = time;
+	  cell2.innerHTML = pressure;
+    }
+  };
+  xhttp.open("GET", "/humidity", true);	//Handle readADC server on ESP8266
+  xhttp.send();
+}
+
+</script>
+</body>
+
+</html>
+
+<!-- )====="; -->
+
+
+<!-- <!DOCTYPE HTML><html> -->
+<!-- Rui Santos - Complete project details at https://RandomNerdTutorials.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software. -->
+<!--
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <style>
+    body {
+      min-width: 310px;
+    	max-width: 800px;
+    	height: 400px;
+      margin: 0 auto;
+    }
+    h2 {
+      font-family: Arial;
+      font-size: 2.5rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Meadery Metrology</h1>
+  <div id="chart-temperature" class="container"></div>
+  <div id="chart-humidity" class="container"></div>
+</body>
+
+<script>
+  var chartT = new Highcharts.Chart({
+    chart:{ renderTo : 'chart-temperature' },
+    title: { text: 'DHT11 Temperature' },
+    series: [{
+      showInLegend: false,
+      data: []
+    }],
+    plotOptions: {
+      line: { animation: false,
+        dataLabels: { enabled: true }
+      },
+      series: { color: '#059e8a' }
+    },
+    xAxis: { type: 'datetime',
+      dateTimeLabelFormats: { second: '%H:%M:%S' }
+    },
+    yAxis: {
+      title: { text: 'Temperature (Celsius)' }
+      //title: { text: 'Temperature (Fahrenheit)' }
+    },
+    credits: { enabled: false }
+  });
+  setInterval(function ( ) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var x = (new Date()).getTime(),
+            y = parseFloat(this.responseText);
+        //console.log(this.responseText);
+        if(chartT.series[0].data.length > 40) {
+          chartT.series[0].addPoint([x, y], true, true, true);
+        } else {
+          chartT.series[0].addPoint([x, y], true, false, true);
+        }
+      }
+    };
+    xhttp.open("GET", "/temperature", true);
+    xhttp.send();
+  }, 5000 ) ;
+
+  var chartH = new Highcharts.Chart({
+    chart:{ renderTo:'chart-humidity' },
+    title: { text: 'DHT11 Humidity' },
+    series: [{
+      showInLegend: false,
+      data: []
+    }],
+    plotOptions: {
+      line: { animation: false,
+        dataLabels: { enabled: true }
+      }
+    },
+    xAxis: {
+      type: 'datetime',
+      dateTimeLabelFormats: { second: '%H:%M:%S' }
+    },
+    yAxis: {
+      title: { text: 'Humidity (%)' }
+    },
+    credits: { enabled: false }
+  });
+  setInterval(function ( ) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var x = (new Date()).getTime(),
+            y = parseFloat(this.responseText);
+        //console.log(this.responseText);
+        if(chartH.series[0].data.length > 40) {
+          chartH.series[0].addPoint([x, y], true, true, true);
+        } else {
+          chartH.series[0].addPoint([x, y], true, false, true);
+        }
+      }
+    };
+    xhttp.open("GET", "/humidity", true);
+    xhttp.send();
+  }, 5000 ) ;
+</script>
+</html> -->
