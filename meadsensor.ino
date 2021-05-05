@@ -1,161 +1,180 @@
-/*********
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com
-  
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-  
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-*********/
-
 // Import required libraries
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <FS.h>
 #include <DHT.h>
-
-#define LED 2  //On board LED
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
 
 #define DHTTYPE    DHT11     // DHT 11
-#define DHTPIN 5     // Digital pin connected to the DHT sensor
+#define DHTPIN 2     // Digital pin connected to the DHT sensor
 
 DHT dht(DHTPIN, DHTTYPE);
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Replace with your network credentials
 const char* ssid = "Halloballo";
 const char* password = "Ballohallo";
 
+
 // Create AsyncWebServer object on port 80
-//AsyncWebServer server(80);
+AsyncWebServer server(80);
 
-float temperature;
-float humidity;
+// Initialize variables for looping data into
 
-float readDHT11Temperature() {
-  // Read temperature as Celsius (the default)
-  float t = dht.readTemperature();
-  // Convert temperature to Fahrenheit
-  //t = 1.8 * t + 32;
-  if (isnan(t)) {    
-    Serial.println("Failed to read from DHT11 sensor!");
-    return 0.0;
+const int delayTime = 60*60*1000; // [ms]
+const int N = 31*24;
+
+int t;
+int tempArray[N];
+char tempStr[3*N];
+
+int h;
+int humArray[N];
+char humStr[3*N];
+
+
+void startWifi() {
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting to WiFi..");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(2000);
+    Serial.println("...");
   }
-  else {
-    Serial.println(t);
-    digitalWrite(LED,!digitalRead(LED));
-    return t;
+
+  // Print ESP32 Local IP Address
+  Serial.println(WiFi.localIP());
+
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html");
+  });
+  
+    server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/plain", tempStr);
+  });
+  
+  server.on("/humidity", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/plain", humStr);
+  });
+
+//    server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
+//    request->send_P(200, "text/plain", N.c_str());
+//  });
+  
+  // Start server
+  server.begin();
+}
+
+void addToArray(int targetArray[N], int inputData){
+  for (int i = 0; i < N-1; i++) {
+    targetArray[i] = targetArray[i+1];
+  }
+  targetArray[N-1] = inputData;
+}
+
+void arrayToStr(char targetArray[3*N], int inputArray[N]) {
+  strcpy(targetArray, "");
+  
+  for (int i = 0; i < N; i++) {   
+    if (inputArray[i] < 10) {
+      char tempChar[2]; 
+      strcat(targetArray, "0");
+      sprintf(tempChar, "%i", inputArray[i]);
+      strcat(targetArray, tempChar);
+    }
+
+    else if (inputArray[i] < 100) {
+      char tempChar[3]; 
+      sprintf(tempChar, "%i", inputArray[i]);
+      strcat(targetArray, tempChar);
+    }
     
+    else {
+      strcat(targetArray, "99");
+    }
+
+    if (i < N - 1) {
+      strcat(targetArray, ",");
+    }
   }
 }
 
-float readDHT11Humidity() {
-  float h = dht.readHumidity();
-  if (isnan(h)) {
-    Serial.println("Failed to read from DHT11 sensor!");
-    return 0.0;
-  }
-  else {
-    Serial.println(h);
-    digitalWrite(LED,!digitalRead(LED));
-    return h;
-  }
+void updateData() {
+  t = dht.readTemperature();
+  addToArray(tempArray, t);
+  arrayToStr(tempStr, tempArray);
+  Serial.print("Temperature: ");
+  Serial.println(tempStr);
+  
+  h = dht.readHumidity();
+  addToArray(humArray, h);
+  arrayToStr(humStr, humArray);
+  Serial.print("Humidity: ");
+  Serial.println(humStr);
 }
 
-String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
-  if (bytes < 1024) {
-    return String(bytes) + "B";
-  } else if (bytes < (1024 * 1024)) {
-    return String(bytes / 1024.0) + "KB";
-  } else if (bytes < (1024 * 1024 * 1024)) {
-    return String(bytes / 1024.0 / 1024.0) + "MB";
+void startScreen() {
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+  Serial.println(F("SSD1306 allocation failed"));
+  for(;;);
   }
+  delay(2000);
+}
+
+void updateScreen() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 20);
+  
+  char tempPrint[20];
+  sprintf(tempPrint, "Temperature: %d C\n", t);
+  display.println(tempPrint);
+  Serial.println(tempPrint);
+
+  char humPrint[16];
+  sprintf(humPrint, "Humidity: %d %%", h);
+  display.println(humPrint);
+
+  Serial.println(humPrint);
+  
+  display.display(); 
 }
 
 void setup(){
   // Serial port for debugging purposes
   Serial.begin(115200);
-  
-  dht.begin(); 
 
-
-  if (SPIFFS.begin()) {
-    Serial.println("SPIFFS started. Contents:");
-    {
-      Dir dir = SPIFFS.openDir("/");
-      while (dir.next()) {                      // List the file system contents
-        String fileName = dir.fileName();
-        size_t fileSize = dir.fileSize();
-        Serial.printf("\tFS File: %s, size: %s\r\n", fileName.c_str(), formatBytes(fileSize).c_str());
-      }
-      Serial.printf("\n");
-    }
-  
-  } 
-  else {
-    Serial.println("Error mounting the file system");
+  // Initialize SPIFFS
+  if(!SPIFFS.begin()){
+    Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
-  
 
+  // Initialize measurement device and get first data point
+  dht.begin(); 
+  updateData();
 
+  startScreen();
+  updateScreen();
 
-
-
-//  // Connect to Wi-Fi
-//  WiFi.begin(ssid, password);
-//  Serial.println("Connecting to WiFi..");
-//  while (WiFi.status() != WL_CONNECTED) {
-//    delay(2000);
-//    Serial.println("...");
-//  }
-//
-//  // Print ESP32 Local IP Address
-//  Serial.println(WiFi.localIP());
-//
-//  // Route for root / web page
-//  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-//    request->send(SPIFFS, "/index.html");
-//  });
-//  
-//  server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
-//    request->send_P(200, "text/plain", temperature.c_str());
-//  });
-//  server.on("/humidity", HTTP_GET, [](AsyncWebServerRequest *request){
-//    request->send_P(200, "text/plain", humidity.c_str());
-//  });
-//
-//  // Start server
-//  server.begin();
+  // Start wifi instance
+  startWifi();
 
 }
  
 void loop(){
-
-  temperature = readDHT11Temperature();
-  humidity = readDHT11Humidity();
-  Serial.println("");
-
-  File datafile = SPIFFS.open("/data.txt", "w+");
-
-  if (!datafile) {
-    Serial.println("Error opening file for writing");
-    return;
-  }
-  else {
-    datafile.print(temperature);
-    datafile.print(',');
-    datafile.println(humidity);
-    
-    Serial.println("File Content:");
-    while (datafile.available()) {
-      Serial.print(datafile.read());
-    }
-    datafile.close();
-    
-    delay(5000);
-
-  }
+  updateData();
+  updateScreen();
+  
+  delay(delayTime);
 }
