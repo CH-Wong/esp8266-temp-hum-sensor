@@ -31,141 +31,153 @@
 	  </div>
 
 <script>
-	tempData = [];
-	humData = [];
-	timeData = [];
+	var tempData = [];
+	var humData = [];
 
-	const N = 744
-	for (var i = N - 1; i >= 0; i--) {
+	const numPoints = 744;
+	const delayTime = 3600000;
+
+	var timeData = [];
+	for (var i = numPoints - 1; i >= 0; i--) {
 	   timeData.push(i);
 		 tempData.push(0);
 		 humData.push(0);
 	}
 
-	showGraph();
-	function showGraph() {
-		var myChart = new Chart(document.getElementById('myChart'), {
-			type: 'line',
-			data: {
-				labels: timeData,
-				datasets: [
-					{
-						label: 'Temperature [C]',
-						data:  tempData,
-						borderColor: '#b32400',
-						backgroundColor: '#b32400',
-						yAxisID: 'T',
-						fill: false
-					}
-					,
-					{
-						label: 'Humidity [%]',
-						data: humData,
-						yAxisID: 'H',
-						borderColor: '#002db3',
-						backgroundColor: '#002db3',
-						fill: false
-					}
-				]
-			}
-			,
-			options: {
-				legend: {
-					position: 'right'
+	var myChart = new Chart(document.getElementById('myChart'), {
+		type: 'line',
+		data: {
+			labels: timeData,
+			datasets: [
+				{
+					label: 'Temperature [C]',
+					data:  tempData,
+					borderColor: '#b32400',
+					backgroundColor: '#b32400',
+					yAxisID: 'T',
+					fill: false
 				},
-				scales: {
-					beginAtZero: true,
-					yAxes: [{
-							id: 'T',
-							gridLines: {
-								display: true,
-								drawOnChartArea: false,
-								color: '#b32400',
-							},
-							type: 'linear',
-							position: 'left',
-							scaleLabel: {
-								display: true,
-								labelString: 'Temperature [C]',
-								fontColor: '#b32400',
-							},
-							ticks: {
-								min: 0,
-								color: '#b32400',
-								fontColor: '#b32400',
-								fontSize: 18,
-								padding: 10
-							}
-						},
-						{
-							id: 'H',
-							gridLines: {
-								display: true,
-								drawOnChartArea: false,
-								color: '#002db3',
-							},
-							type: 'linear',
-							position: 'right',
-							scaleLabel: {
-								display: true,
-								labelString: 'Humidity [%]',
-								fontColor: '#002db3'
-							},
-							ticks: {
-								min: 0,
-								max: 100,
-								color: '#002db3',
-								fontColor: '#002db3',
-								fontSize: 18,
-								padding: 10
-							}
-						}],
-					xAxes: [{
-						// type: 'time',
+				{
+					label: 'Humidity [%]',
+					data: humData,
+					yAxisID: 'H',
+					borderColor: '#002db3',
+					backgroundColor: '#002db3',
+					fill: false
+				}
+			]
+		}
+		,
+		options: {
+			legend: {
+				position: 'right'
+			},
+			scales: {
+				beginAtZero: true,
+				yAxes: [{
+						id: 'T',
 						gridLines: {
 							display: true,
 							drawOnChartArea: false,
+							color: '#b32400',
 						},
+						type: 'linear',
+						position: 'left',
 						scaleLabel: {
 							display: true,
-							labelString: 'Time passed [h]'
+							labelString: 'Temperature [C]',
+							fontColor: '#b32400',
 						},
 						ticks: {
-							padding: 10,
-							fontSize: 18
+							min: 0,
+							color: '#b32400',
+							fontColor: '#b32400',
+							fontSize: 18,
+							padding: 10
 						}
-					}]
-				}
-		  }
-		});
-	};
-
-
-	setInterval(function() {
-		var xhttp = new XMLHttpRequest();
-		xhttp.onreadystatechange = function() {
-			if (this.readyState == 4 && this.status == 200) {
-					var humStr = this.responseText;
-					humData = humStr.split(",");
+					},
+					{
+						id: 'H',
+						gridLines: {
+							display: true,
+							drawOnChartArea: false,
+							color: '#002db3',
+						},
+						type: 'linear',
+						position: 'right',
+						scaleLabel: {
+							display: true,
+							labelString: 'Humidity [%]',
+							fontColor: '#002db3'
+						},
+						ticks: {
+							min: 0,
+							max: 100,
+							color: '#002db3',
+							fontColor: '#002db3',
+							fontSize: 18,
+							padding: 10
+						}
+					}],
+				xAxes: [{
+					// type: 'time',
+					gridLines: {
+						display: true,
+						drawOnChartArea: false,
+					},
+					scaleLabel: {
+						display: true,
+						labelString: 'Time passed [h]'
+					},
+					ticks: {
+						padding: 10,
+						fontSize: 18
+					}
+				}]
 			}
-		};
-		xhttp.open("GET", "/humidity", true);
-		xhttp.send();
-	}, 3600000);
+	  }
+	});
+	updateData()
+	setTimeout(function() {myChart.update();}, 1000);
 
-	setInterval(function () {
+	setInterval(updateData, delayTime);
+
+	function getTemperature() {
 		var xhttp = new XMLHttpRequest();
 		xhttp.onreadystatechange = function() {
 			if (this.readyState == 4 && this.status == 200) {
-					var tempStr = this.responseText;
+					let tempStr = this.responseText;
 					tempData = tempStr.split(",");
-					showGraph();
+					console.log("tempData: ", tempData)
+					myChart.data.datasets[0].data = tempData;
+
 			}
 		};
 		xhttp.open("GET", "/temperature", true);
 		xhttp.send();
-	}, 3600000);
+	}
 
+
+function getHumidity() {
+	var xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+				let humStr = this.responseText;
+				humData = humStr.split(",");
+				console.log("Humidity: ", humData)
+				myChart.data.datasets[1].data = humData;
+		}
+	};
+	xhttp.open("GET", "/humidity", true);
+	xhttp.send();
+}
+
+
+function updateData() {
+	getTemperature();
+	getHumidity();
+	myChart.update();
+}
 
 </script>
 

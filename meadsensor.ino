@@ -29,8 +29,8 @@ AsyncWebServer server(80);
 
 // Initialize variables for looping data into
 
-const int delayTime = 60*60*1000; // [ms]
-const int N = 31*24;
+const int N = 744; // 1 per hour for 31 days
+const int delayTime = 3600000; // [ms]
 
 int t;
 int tempArray[N];
@@ -39,7 +39,6 @@ char tempStr[3*N];
 int h;
 int humArray[N];
 char humStr[3*N];
-
 
 void startWifi() {
   // Connect to Wi-Fi
@@ -65,10 +64,6 @@ void startWifi() {
   server.on("/humidity", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", humStr);
   });
-
-//    server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
-//    request->send_P(200, "text/plain", N.c_str());
-//  });
   
   // Start server
   server.begin();
@@ -85,14 +80,14 @@ void arrayToStr(char targetArray[3*N], int inputArray[N]) {
   strcpy(targetArray, "");
   
   for (int i = 0; i < N; i++) {   
-    if (inputArray[i] < 10) {
-      char tempChar[2]; 
-      strcat(targetArray, "0");
-      sprintf(tempChar, "%i", inputArray[i]);
-      strcat(targetArray, tempChar);
-    }
+//    if (inputArray[i] < 10) {
+//      char tempChar[2]; 
+//      strcat(targetArray, "0");
+//      sprintf(tempChar, "%i", inputArray[i]);
+//      strcat(targetArray, tempChar);
+//    }
 
-    else if (inputArray[i] < 100) {
+    if (inputArray[i] < 100) {
       char tempChar[3]; 
       sprintf(tempChar, "%i", inputArray[i]);
       strcat(targetArray, tempChar);
@@ -166,10 +161,9 @@ void setup(){
 
   startScreen();
   updateScreen();
-
+  
   // Start wifi instance
   startWifi();
-
 }
  
 void loop(){
