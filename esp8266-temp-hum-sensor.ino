@@ -36,7 +36,7 @@ byte NTPBuffer[NTP_PACKET_SIZE]; // buffer to hold incoming and outgoing packets
 const char* ssid     = "Halloballo";         // The SSID (name) of the Wi-Fi network you want to connect to
 const char* password = "Ballohallo";     // The password of the Wi-Fi network
 
-const char* host = "hello";     // mDNS hostname
+const char* host = "sensor";     // mDNS hostname
 
 // OTA variable declaration
 const char* OTAHostName = "ESP8266OTA";
@@ -262,7 +262,7 @@ void loop(void) {
       dataLog.print(',');
       dataLog.print(temp);
       dataLog.print(',');
-      dataLog.print(hum);
+      dataLog.println(hum);
       dataLog.close();
 
       display.clearDisplay();
