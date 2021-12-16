@@ -189,6 +189,13 @@ void initServer(){
   Serial.println("HTTP server started");
 }
 
+void initDisplay() {
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+  Serial.println(F("SSD1306 allocation failed"));
+  for(;;);
+  }
+  delay(2000);
+}
 
 void setup() {
   // BOARD INIT
@@ -201,6 +208,7 @@ void setup() {
   initNTP();
   initSPIFFS();
   initServer();
+  initDisplay();
 
   delay(10);
 }
@@ -261,18 +269,19 @@ void loop(void) {
       display.setTextSize(1);
       display.setTextColor(WHITE);
       display.setCursor(0, 20);
+
+      static char strBuffer[10];
+      char tempPrint[20];
+      dtostrf(temp, 2, 2, strBuffer);
+      sprintf(tempPrint, "Temperature: %s'C\n", strBuffer);
+      display.println(tempPrint);
+    
+      char humPrint[16];
+      dtostrf(hum, 2, 1, strBuffer);
+      sprintf(humPrint, "Humidity: %s %%", strBuffer);
+      display.println(humPrint);
       
-//      char tempPrint[20];
-//      sprintf(tempPrint, "Temperature: %d C\n", temp);
-//      display.println(tempPrint);
-//      Serial.println(tempPrint);
-//    
-//      char humPrint[16];
-//      sprintf(humPrint, "Humidity: %d %%", hum);
-//      display.println(humPrint);
-//      Serial.println(humPrint);
-//      
-//      display.display(); 
+      display.display(); 
       
     }
   } 
