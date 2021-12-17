@@ -55,7 +55,7 @@ const unsigned long intervalNTP = ONE_HOUR; // Update the time every hour
 unsigned long prevNTP = 0;
 unsigned long lastNTPResponse = millis();
 
-const unsigned long intervalMeasurement = 5000;   // Do a temperature measurement every minute
+const unsigned long intervalMeasurement = 60000;   // Do a temperature measurement every minute
 unsigned long prevMeasurement = 0;
 
 uint32_t timeUNIX = 0;                      // The most recent timestamp received from the time server
@@ -280,6 +280,9 @@ void loop(void) {
       display.setTextColor(WHITE);
       display.setCursor(0, 20);
 
+      display.println(WiFi.localIP());
+      display.print("\n");
+      
       static char strBuffer[10];
       char tempPrint[20];
       dtostrf(temp, 2, 2, strBuffer);
@@ -290,6 +293,7 @@ void loop(void) {
       dtostrf(hum, 2, 1, strBuffer);
       sprintf(humPrint, "Humidity: %s %%", strBuffer);
       display.println(humPrint);
+
       
       display.display(); 
       
