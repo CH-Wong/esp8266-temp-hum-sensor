@@ -30,3 +30,4 @@
 *.exe
 *.out
 *.app
+tools/ESP8266FS/tool/esp8266fs.jar
