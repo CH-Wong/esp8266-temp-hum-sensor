@@ -4,22 +4,18 @@
 #include <ArduinoOTA.h>
 #include <WiFiUdp.h>
 #include <FS.h>   // Include the SPIFFS library
-
 #include <DHT.h>
-
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
 
 #define DHTTYPE    DHT11     // DHT 11
 #define DHTPIN 2     // Digital pin connected to the DHT sensor
 
 DHT dht(DHTPIN, DHTTYPE);
 
-#include <Adafruit_SSD1306.h>
-#include <Wire.h>
-
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
-
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -42,6 +38,8 @@ const char* host = "sensor";     // mDNS hostname
 const char* OTAHostName = "ESP8266OTA";
 const char* OTAPassword = "IWantToUpload";
 
+const String dataFile = "/data.csv";
+
 // Server variable declaration
 ESP8266WebServer server(80);
 String getContentType(String filename); // convert the file extension to the MIME type
@@ -57,8 +55,8 @@ const unsigned long intervalNTP = ONE_HOUR; // Update the time every hour
 unsigned long prevNTP = 0;
 unsigned long lastNTPResponse = millis();
 
-const unsigned long intervalTemp = 5000;   // Do a temperature measurement every minute
-unsigned long prevTemp = 0;
+const unsigned long intervalMeasurement = 5000;   // Do a temperature measurement every minute
+unsigned long prevMeasurement = 0;
 
 uint32_t timeUNIX = 0;                      // The most recent timestamp received from the time server
 
@@ -239,15 +237,20 @@ void loop(void) {
 
   if (timeUNIX != 0) {
 
-    if (currentMillis - prevTemp > intervalTemp) { // 750 ms after requesting the temperature
-      prevTemp = currentMillis;
+    if (currentMillis - prevMeasurement > intervalMeasurement) { // 750 ms after requesting the temperature
+      prevMeasurement = currentMillis;
       uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
       // The actual time is the last NTP time plus the time that has elapsed since the last NTP response
 
+      int attempts = 0;
       float temp = dht.readTemperature();
-      temp = round(temp * 100.0) / 100.0; // round temperature to 2 digits
-      delay(100);
       float hum = dht.readHumidity();
+      if (isnan(temp) ||  isnan(hum)) {
+        temp = 0.0;
+        hum = 0.0;
+      }
+      
+      temp = round(temp * 100.0) / 100.0; // round temperature to 2 digits
       hum = round(hum * 100.0) / 100.0; // round temperature to 2 digits
 
       Serial.print("Measurement data: ");
@@ -256,8 +259,15 @@ void loop(void) {
       Serial.print(temp);
       Serial.print("\t");
       Serial.println(hum);
+
       
-      File dataLog = SPIFFS.open("/data.csv", "a"); // Write the time and the temperature to the csv file
+      if (!SPIFFS.exists(dataFile)) {
+        File dataLog = SPIFFS.open(dataFile, "a"); // Write the headers
+        dataLog.println("Time,Temperature,Humidity");
+        dataLog.close();
+      }
+      
+      File dataLog = SPIFFS.open(dataFile, "a"); // Write the headers
       dataLog.print(actualTime);
       dataLog.print(',');
       dataLog.print(temp);
