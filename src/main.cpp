@@ -46,13 +46,13 @@ byte NTPBuffer[NTP_PACKET_SIZE]; // buffer to hold incoming and outgoing packets
 
 
 /* 2. Define the API Key */
-#define API_KEY "AIzaSyDPOk299hwHKRP4F6M5hFwyVtNVhQm"
-
-/* 3. Define the project ID */
-#define FIREBASE_PROJECT_ID "bidoof-home-database"
+#define API_KEY "AIzaSyDPOk299hwHKRP4F6M5hFwyVtNVhQm-KP0"
+#define SERVICE_ACCOUNT_FILENAME "/private-key.json"
 
 /* 3. Define the RTDB URL */
-#define DATABASE_URL "bidoof-home-database-default-rtdb.europe-west1.firebasedatabase.app/" //<databaseName>.firebaseio.com or <databaseName>.<region>.firebasedatabase.app
+#define DATABASE_URL "bidoof-home-database-default-rtdb.europe-west1.firebasedatabase.app" //<databaseName>.firebaseio.com or <databaseName>.<region>.firebasedatabase.app
+
+
 
 // Init Firebase objects
 FirebaseData fbdo;
@@ -143,7 +143,7 @@ void initFirebase() {
     config.database_url = DATABASE_URL;
 
     /* Assign the sevice account JSON file and the file storage type (required) */
-    config.service_account.json.path = "/private-key.json";   // change this for your json file
+    config.service_account.json.path = SERVICE_ACCOUNT_FILENAME;   // change this for your json file
     config.service_account.json.storage_type = mem_storage_type_flash; // or  mem_storage_type_sd
 
     /** Assign the unique user ID (uid) (required)
@@ -448,7 +448,6 @@ void setup() {
 }
 
 
-
 void loop(void) {
  
   ArduinoOTA.handle();
@@ -490,8 +489,6 @@ void loop(void) {
       
       temp = round(temp * 100.0) / 100.0; // round temperature to 2 digits
       hum = round(hum * 100.0) / 100.0; // round temperature to 2 digits
-
-
 
 
       Serial.print("Measurement data: ");
