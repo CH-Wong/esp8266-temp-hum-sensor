@@ -10,19 +10,24 @@
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
 
+#include <Firebase_ESP_Client.h>
+
+// Provide the token generation process info.
+#include <addons/TokenHelper.h>
+
+
 #define DHTTYPE DHT11     // DHT 11
 #define DHTPIN 2     // GPIO pin out, not Digital pin number
 
 DHTesp dht;
 
 // WiFi variable Declaration 
-const char* ssid     = "Halloballo";         // The SSID (name) of the Wi-Fi network you want to connect to
-const char* password = "Ballohallo";     // The password of the Wi-Fi network
-
-const char* host = "main";     // mDNS hostname
+#define WIFI_SSID "Halloballo"
+#define WIFI_PASSWORD "Ballohallo"
+#define MDNS_HOSTNAME "livingroom"// mDNS hostname 
 
 // OTA variable declaration
-const char* OTAPassword = "IWantToUpload";
+#define OTAPassword "IWantToUpload"
 
 const int intervalMeasurement = 2000;   // Do a temperature measurement every minute
 
@@ -39,8 +44,21 @@ const char* NTPServerName = "time.nist.gov";
 const int NTP_PACKET_SIZE = 48;  // NTP time stamp is in the first 48 bytes of the message
 byte NTPBuffer[NTP_PACKET_SIZE]; // buffer to hold incoming and outgoing packets
 
-// Setting filename for our data storage on FS
-const String dataFile = "/data.csv";
+
+/* 2. Define the API Key */
+#define API_KEY "AIzaSyDPOk299hwHKRP4F6M5hFwyVtNVhQm"
+
+/* 3. Define the project ID */
+#define FIREBASE_PROJECT_ID "bidoof-home-database"
+
+/* 3. Define the RTDB URL */
+#define DATABASE_URL "bidoof-home-database-default-rtdb.europe-west1.firebasedatabase.app/" //<databaseName>.firebaseio.com or <databaseName>.<region>.firebasedatabase.app
+
+// Init Firebase objects
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+
 
 // Server variable declaration
 ESP8266WebServer server(80);
@@ -61,7 +79,7 @@ uint32_t timeUNIX = 0;                      // The most recent timestamp receive
 
 void initOTA() {
   // OTA INIT
-  ArduinoOTA.setHostname(host);
+  ArduinoOTA.setHostname(MDNS_HOSTNAME);
   ArduinoOTA.setPassword(OTAPassword);
 
   ArduinoOTA.onStart([]() {
@@ -87,9 +105,9 @@ void initOTA() {
 
 void initWiFi() {
   // WIFI INIT
-  WiFi.begin(ssid, password);             // Connect to the network
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);             // Connect to the network
   Serial.print("Connecting to ");
-  Serial.print(ssid); Serial.println(" ...");
+  Serial.print(WIFI_SSID); Serial.println(" ...");
 
   int i = 0;
   while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
@@ -104,16 +122,58 @@ void initWiFi() {
 
 
   // MDNS INIT
-  if (!MDNS.begin(host)) {             // Start the mDNS responder for esp8266.local
+  if (!MDNS.begin(MDNS_HOSTNAME)) {             // Start the mDNS responder for esp8266.local
     Serial.println("Error setting up MDNS responder!");
   }
   Serial.println("mDNS responder started");
   
   Serial.print("Open http://");
-  Serial.print(host);
+  Serial.print(MDNS_HOSTNAME);
   Serial.println(".local/edit to see the file browser");
 }
 
+
+void initFirebase() {
+    Serial.printf("Firebase Client v%s\n\n", FIREBASE_CLIENT_VERSION);
+
+    /* Assign the api key (required) */
+    config.api_key = API_KEY;
+
+    /* Assign the RTDB URL (required) */
+    config.database_url = DATABASE_URL;
+
+    /* Assign the sevice account JSON file and the file storage type (required) */
+    config.service_account.json.path = "/private-key.json";   // change this for your json file
+    config.service_account.json.storage_type = mem_storage_type_flash; // or  mem_storage_type_sd
+
+    /** Assign the unique user ID (uid) (required)
+     * This uid will be compare to the auth.uid variable in the database rules.
+     *
+     * If the assigned uid (user UID) was not existed, the new user will be created.
+     *
+     * If the uid is empty or not assigned, the library will create the OAuth2.0 access token
+     * instead.
+     *
+     * With OAuth2.0 access token, the device will be signed in as admin which has
+     * the full ggrant access and no database rules and custom claims are applied.
+     * This similar to sign in using the database secret but no admin rights.
+     */
+
+    /* Assign the callback function for the long running token generation task */
+    config.token_status_callback = tokenStatusCallback; // see addons/TokenHelper.h
+
+    Firebase.reconnectWiFi(true);
+
+    fbdo.setResponseSize(4096);
+
+    /* Assign the callback function for the long running token generation task */
+    config.token_status_callback = tokenStatusCallback; // see addons/TokenHelper.h
+
+    /** Assign the maximum retry of token generation */
+    config.max_token_generation_retry = 5;
+
+    Firebase.begin(&config, &auth);
+}
 
 void sendNTPpacket(IPAddress& address) {
   memset(NTPBuffer, 0, NTP_PACKET_SIZE);  // set all bytes in the buffer to 0
@@ -379,10 +439,12 @@ void setup() {
   initSPIFFS();
   initServer();
   initDisplay();
+
+  initFirebase();
   
   dht.setup(DHTPIN, DHTesp::DHT11); // Connect DHT sensor to GPIO 17
 
-  delay(10);
+  delay(100);
 }
 
 
@@ -429,6 +491,9 @@ void loop(void) {
       temp = round(temp * 100.0) / 100.0; // round temperature to 2 digits
       hum = round(hum * 100.0) / 100.0; // round temperature to 2 digits
 
+
+
+
       Serial.print("Measurement data: ");
       Serial.print(actualTime);
       Serial.print("\t");
@@ -436,20 +501,9 @@ void loop(void) {
       Serial.print("\t");
       Serial.println(hum);
 
-      
-      if (!LittleFS.exists(dataFile)) {
-        File dataLog = LittleFS.open(dataFile, "a"); // Write the headers
-        dataLog.println("Time,Temperature,Humidity");
-        dataLog.close();
-      }
-      
-      File dataLog = LittleFS.open(dataFile, "a"); // Write the headers
-      dataLog.print(actualTime);
-      dataLog.print(',');
-      dataLog.print(temp);
-      dataLog.print(',');
-      dataLog.println(hum);
-      dataLog.close();
+
+      Serial.printf("Pushing Temperature Data %s\n", Firebase.RTDB.pushInt(&fbdo, F("/livingroom/temperature"), 2) ? "ok" : fbdo.errorReason().c_str());
+      Serial.printf("Pushing Humidity Data %s\n", Firebase.RTDB.pushInt(&fbdo, F("/livingroom/humidity"), 2) ? "ok" : fbdo.errorReason().c_str());
 
       display.clearDisplay();
       display.setTextSize(1);
@@ -457,7 +511,7 @@ void loop(void) {
       display.setCursor(0, 0);  
 
       display.print("http://");
-      display.print(host);
+      display.print(MDNS_HOSTNAME);
       display.println(".local/");
       display.println(WiFi.localIP());
       display.print("\n");
@@ -472,7 +526,6 @@ void loop(void) {
       dtostrf(hum, 2, 1, strBuffer);
       sprintf(humPrint, "Humidity: %s %%", strBuffer);
       display.println(humPrint);
-
       
       display.display(); 
       
