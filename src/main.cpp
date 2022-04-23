@@ -167,6 +167,7 @@ void resetDisplay() {
     display.println(STATION_NAME);
     display.println(WiFi.localIP());
     display.println("-----------------\n");
+    display.display(); 
 }
 
 
@@ -266,13 +267,13 @@ void loop(void) {
       // Update the display to match the pushed measurement
       resetDisplay();
 
-      static char strBuffer[30];
-      char tempPrint[30];
+      static char strBuffer[20];
+      char tempPrint[50];
       dtostrf(temp, 2, 2, strBuffer);
       sprintf(tempPrint, "Temperature: %s'C\n", strBuffer);
       display.println(tempPrint);
       
-      char humPrint[30];
+      char humPrint[50];
       dtostrf(hum, 2, 1, strBuffer);
       sprintf(humPrint, "Humidity: %s %%", strBuffer);
       display.println(humPrint);
