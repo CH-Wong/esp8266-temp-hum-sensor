@@ -2,6 +2,10 @@ lib/*
 .vscode*
 .pio*
 
+# config/password files
+*.json
+config.h
+
 # Prerequisites
 *.d
 
