@@ -1,46 +1,45 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>        // Include the Wi-Fi library
-
+#include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <DHTesp.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
-
 #include <Firebase_ESP_Client.h>
+#include <addons/TokenHelper.h> // Provide the token generation process info.
 
-// Provide the token generation process info.
-#include <addons/TokenHelper.h>
-
-#define DHTTYPE DHT11     // DHT 11
-#define DHTPIN 2     // GPIO pin out, not Digital pin number
-
+// Name of this measurement station (used in display and in firebase RTDB entry name)
 #define STATION_NAME "livingroom"
 
 // WiFi variable Declaration 
 #define WIFI_SSID "Halloballo"
 #define WIFI_PASSWORD "Ballohallo"
 
-// OTA variable declaration
-#define OTAPassword "IWantToUpload"
-
-const int intervalMeasurement = 2000;   // Do a temperature measurement every minute
+#define MEASUREMENT_INTERVAL 60000   // Number of milliseconds between each measurement
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-/* 2. Define the API Key */
+
+// Declare DHT sensor type and properties
+#define DHTTYPE DHT11     // DHT 11
+#define DHTPIN 2     // GPIO pin out, not Digital pin number
+
+// FIREBASE SETUP VARIABLES
+// Define the API Key 
 #define API_KEY "AIzaSyDPOk299hwHKRP4F6M5hFwyVtNVhQm-KP0"
 #define SERVICE_ACCOUNT_FILENAME "/private-key.json"
 
-/* 3. Define the RTDB URL */
-#define DATABASE_URL "bidoof-home-database-default-rtdb.europe-west1.firebasedatabase.app" //<databaseName>.firebaseio.com or <databaseName>.<region>.firebasedatabase.app
+// Define the RTDB URL  <databaseName>.firebaseio.com or <databaseName>.<region>.firebasedatabase.app
+#define DATABASE_URL "bidoof-home-database-default-rtdb.europe-west1.firebasedatabase.app"
 
-DHTesp dht;
+// GLOBAL VARIABLE DECLARATION
+DHTesp dht; // Setup classname for dht sensor
 
 // For Network Time Protocol (NTP)
-WiFiUDP UDP;
+WiFiUDP UDP; // setup class name for WidiUDP connection to NTP server
 IPAddress timeServerIP;          // time.nist.gov NTP server address
 const char* NTPServerName = "time.nist.gov";
 const int NTP_PACKET_SIZE = 48;  // NTP time stamp is in the first 48 bytes of the message
@@ -51,8 +50,10 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
+char timeAddress[40];
+char tempAddress[40];
+char humAddress[40];
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // NTP variable declaration
 #define ONE_HOUR 3600000UL
@@ -62,9 +63,6 @@ unsigned long lastNTPResponse = millis();
 
 unsigned long prevMeasurement = 0;
 uint32_t timeUNIX = 0;                      // The most recent timestamp received from the time server
-
-
-
 
 
 void initWiFi() {
@@ -98,19 +96,6 @@ void initFirebase() {
     /* Assign the sevice account JSON file and the file storage type (required) */
     config.service_account.json.path = SERVICE_ACCOUNT_FILENAME;   // change this for your json file
     config.service_account.json.storage_type = mem_storage_type_flash; // or  mem_storage_type_sd
-
-    /** Assign the unique user ID (uid) (required)
-     * This uid will be compare to the auth.uid variable in the database rules.
-     *
-     * If the assigned uid (user UID) was not existed, the new user will be created.
-     *
-     * If the uid is empty or not assigned, the library will create the OAuth2.0 access token
-     * instead.
-     *
-     * With OAuth2.0 access token, the device will be signed in as admin which has
-     * the full ggrant access and no database rules and custom claims are applied.
-     * This similar to sign in using the database secret but no admin rights.
-     */
 
     /* Assign the callback function for the long running token generation task */
     config.token_status_callback = tokenStatusCallback; // see addons/TokenHelper.h
@@ -189,34 +174,48 @@ void initNTP() {
   sendNTPpacket(timeServerIP);  
 }
 
+void resetDisplay() {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(0, 0);  
+
+    display.println(STATION_NAME);
+    display.println(WiFi.localIP());
+    display.println("-----------------\n");
+}
+
+
 void setup() {
     // BOARD INIT
     Serial.begin(115200);         // Start the Serial communication to send messages to the computer
+
+    String stationName = STATION_NAME;
+    sprintf(timeAddress, "/%s/time", stationName.c_str());
+    sprintf(tempAddress, "/%s/temperature", stationName.c_str());
+    sprintf(humAddress, "/%s/humidity", stationName.c_str());
 
     // Init DHT sensor
     dht.setup(DHTPIN, DHTesp::DHT11); // Connect DHT sensor to GPIO 17
 
     // Init display
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-        Serial.println(F("SSD1306 allocation failed"));
+      Serial.println(F("SSD1306 allocation failed"));
     }
     else {
-        Serial.println("Succesfully intialised SSD1306 Display.");
+      Serial.println("Succesfully intialised SSD1306 Display.");
+      resetDisplay();
     }
 
+    // Initialization fucntions
     initWiFi();
     initNTP();
     initFirebase();
 
 }
 
+
 void loop(void) {
-
-  const char * timeAddress = "/" + "livingroom" + "/time"; //concatenation easy!
-  const char * tempAddress = "/livingroom/temperature"; //concatenation easy!
-  const char * humAddress = "/livingroom/humidity"; //concatenation easy!
-
-
   unsigned long currentMillis = millis();
 
   if (currentMillis - prevNTP > intervalNTP) { // Request the time from the time server every hour
@@ -239,64 +238,67 @@ void loop(void) {
 
   if (timeUNIX != 0) {
 
-    if (Firebase.ready() && currentMillis - prevMeasurement > intervalMeasurement) { // 750 ms after requesting the temperature
-        prevMeasurement = currentMillis;
-        uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
-        // The actual time is the last NTP time plus the time that has elapsed since the last NTP response
+    if (Firebase.ready() && currentMillis - prevMeasurement > MEASUREMENT_INTERVAL) { // 750 ms after requesting the temperature
+      prevMeasurement = currentMillis;
+      uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
+      // The actual time is the last NTP time plus the time that has elapsed since the last NTP response
 
-        float temp = dht.getTemperature();
-        float hum = dht.getHumidity();
-        if (isnan(temp) ||  isnan(hum)) {
-            temp = 0.0;
-            hum = 0.0;
-        }
-        else {
-            temp = round(temp * 100.0) / 100.0; // round temperature to 2 digits
-            hum = round(hum * 100.0) / 100.0; // round temperature to 2 digits
-        }
+      // Get the measurements from the sensor!
+      float temp = dht.getTemperature();
+      float hum = dht.getHumidity();
 
-        char buffer[50];
-        sprintf(buffer, "Measurement: %d,\t%f,\t%f", actualTime, temp, hum);
-        Serial.println(buffer);
+      // If measurement error, output 0.0 instead
+      if (isnan(temp) ||  isnan(hum)) {
+          temp = 0.0;
+          hum = 0.0;
+      }
+      else {
+          // Otherwise, correctly format the measurement to 2 digits
+          temp = round(temp * 100.0) / 100.0; // round temperature to 2 digits
+          hum = round(hum * 100.0) / 100.0; // round temperature to 2 digits
+      }
 
-        while (!Firebase.RTDB.pushInt(&fbdo, timeAddress, actualTime)) { 
-          Serial.println(fbdo.errorReason().c_str());
-        };
-        Serial.println("ok");
+      // Print the measurement in the Serial Monitor for debugging
+      char buffer[50];
+      sprintf(buffer, "Measurement: %d,\t%f,\t%f", actualTime, temp, hum);
+      Serial.println(buffer);
 
-        while (!Firebase.RTDB.pushFloat(&fbdo, tempAddress, temp)) { 
-          Serial.println(fbdo.errorReason().c_str());
-        };
-        Serial.println("ok");
+      // Keep trying to push until the database update returns true
+      while (!Firebase.RTDB.pushInt(&fbdo, timeAddress, actualTime)) { 
+        Serial.println(fbdo.errorReason().c_str());
+      };
+      Serial.println("ok");
 
-        while (!Firebase.RTDB.pushFloat(&fbdo, humAddress, hum)) { 
-          Serial.println(fbdo.errorReason().c_str());
-        };
-        Serial.println("ok");
+      while (!Firebase.RTDB.pushFloat(&fbdo, tempAddress, temp)) { 
+        Serial.println(fbdo.errorReason().c_str());
+      };
+      Serial.println("ok");
 
-        display.clearDisplay();
-        display.setTextSize(1);
-        display.setTextColor(WHITE);
-        display.setCursor(0, 0);  
+      while (!Firebase.RTDB.pushFloat(&fbdo, humAddress, hum)) { 
+        Serial.println(fbdo.errorReason().c_str());
+      };
+      Serial.println("ok");
 
-        display.println(STATION_NAME);
-        display.println(WiFi.localIP());
+      // Update the display to match the pushed measurement
+      resetDisplay();
+
+      static char strBuffer[30];
+      char tempPrint[30];
+      dtostrf(temp, 2, 2, strBuffer);
+      sprintf(tempPrint, "Temperature: %s'C\n", strBuffer);
+      display.println(tempPrint);
       
-        static char strBuffer[10];
-        char tempPrint[20];
-        dtostrf(temp, 2, 2, strBuffer);
-        sprintf(tempPrint, "Temperature: %s'C\n", strBuffer);
-        display.println(tempPrint);
-        
-        char humPrint[16];
-        dtostrf(hum, 2, 1, strBuffer);
-        sprintf(humPrint, "Humidity: %s %%", strBuffer);
-        display.println(humPrint);
-        
-        display.display(); 
+      char humPrint[30];
+      dtostrf(hum, 2, 1, strBuffer);
+      sprintf(humPrint, "Humidity: %s %%", strBuffer);
+      display.println(humPrint);
+      
+      display.display(); 
     }
   } 
-  else {                                    // If we didn't receive an NTP response yet, send another request
+
+  // If we didn't receive an NTP response yet, send another request
+  else {                                    
     sendNTPpacket(timeServerIP);
     Serial.print("No NTP response received, attempting to resend NTP packet...\n");
     delay(500);
