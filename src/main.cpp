@@ -180,7 +180,13 @@ void setup() {
     sprintf(tempAddress, "/%s/temperature", stationName.c_str());
     sprintf(humAddress, "/%s/humidity", stationName.c_str());
 
-    // Init DHT sensor
+
+
+    // Initialization fucntions
+    initWiFi();
+    initNTP();
+
+        // Init DHT sensor
     dht.setup(DHTPIN, DHTesp::DHT11); // Connect DHT sensor to GPIO 17
 
     // Init display
@@ -192,9 +198,6 @@ void setup() {
       resetDisplay();
     }
 
-    // Initialization fucntions
-    initWiFi();
-    initNTP();
     initFirebase();
 
 }
