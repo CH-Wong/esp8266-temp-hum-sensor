@@ -1,8 +1,6 @@
 lib/*
 .vscode*
 .pio*
-*.json
-
 
 # Prerequisites
 *.d
