@@ -2,7 +2,7 @@ lib/*
 .vscode*
 .pio*
 
-# config/password files
+# Config and keyfiles
 *.json
 config.h
 
@@ -38,3 +38,4 @@ config.h
 *.exe
 *.out
 *.app
+
