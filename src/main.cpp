@@ -7,14 +7,7 @@
 #include <Firebase_ESP_Client.h>
 #include <addons/TokenHelper.h> // Provide the token generation process info.
 
-// Name of this measurement station (used in display and in firebase RTDB entry name)
-#define STATION_NAME "livingroom"
-
-// WiFi variable Declaration 
-#define WIFI_SSID "Halloballo"
-#define WIFI_PASSWORD "Ballohallo"
-
-#define MEASUREMENT_INTERVAL 60000   // Number of milliseconds between each measurement
+#include <config.h>
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -22,18 +15,9 @@
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-
 // Declare DHT sensor type and properties
 #define DHTTYPE DHT11     // DHT 11
 #define DHTPIN 2     // GPIO pin out, not Digital pin number
-
-// FIREBASE SETUP VARIABLES
-// Define the API Key 
-#define API_KEY "AIzaSyDPOk299hwHKRP4F6M5hFwyVtNVhQm-KP0"
-#define SERVICE_ACCOUNT_FILENAME "/private-key.json"
-
-// Define the RTDB URL  <databaseName>.firebaseio.com or <databaseName>.<region>.firebasedatabase.app
-#define DATABASE_URL "bidoof-home-database-default-rtdb.europe-west1.firebasedatabase.app"
 
 // GLOBAL VARIABLE DECLARATION
 DHTesp dht; // Setup classname for dht sensor
