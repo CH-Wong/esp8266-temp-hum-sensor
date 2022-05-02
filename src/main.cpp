@@ -17,7 +17,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Declare DHT sensor type and properties
 #define DHTTYPE DHT11     // DHT 11
-#define DHTPIN 2     // GPIO pin out, not Digital pin number
+#define DHTPIN 14     // GPIO pin out, corresponds to D5
 
 // GLOBAL VARIABLE DECLARATION
 DHTesp dht; // Setup classname for dht sensor
@@ -180,14 +180,12 @@ void setup() {
     sprintf(tempAddress, "/%s/temperature", stationName.c_str());
     sprintf(humAddress, "/%s/humidity", stationName.c_str());
 
-
-
     // Initialization fucntions
     initWiFi();
     initNTP();
 
         // Init DHT sensor
-    dht.setup(DHTPIN, DHTesp::DHT11); // Connect DHT sensor to GPIO 17
+    dht.setup(DHTPIN, DHTesp::DHT11); // Connect DHT sensor to DHTPIN
 
     // Init display
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
@@ -251,7 +249,7 @@ void loop(void) {
       sprintf(buffer, "Measurement: %d,\t%f,\t%f", actualTime, temp, hum);
       Serial.println(buffer);
 
-      // Keep trying to push until the database update returns true
+      // // Keep trying to push until the database update returns true
       while (!Firebase.RTDB.pushInt(&fbdo, timeAddress, actualTime)) { 
         Serial.println(fbdo.errorReason().c_str());
       };
